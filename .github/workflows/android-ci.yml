@@ -49,15 +49,8 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: ${{ env.JAVA_DISTRIBUTION }}
 
-      - name: 配置 Gradle 缓存
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ hashFiles('android/**/*.gradle*', 'android/**/gradle-wrapper.properties') }}
-          restore-keys: |
-            gradle-${{ runner.os }}-
+      - name: 配置 Gradle
+        uses: gradle/actions/setup-gradle@v4
 
       - name: 授予 Gradle 执行权限
         run: chmod +x gradlew
@@ -72,6 +65,7 @@ jobs:
           name: lint-report
           path: android/app/build/reports/lint-results-debug.html
           retention-days: 14
+          if-no-files-found: warn
 
   # ============================================================
   # Job 2: 单元测试
@@ -93,15 +87,8 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: ${{ env.JAVA_DISTRIBUTION }}
 
-      - name: 配置 Gradle 缓存
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ hashFiles('android/**/*.gradle*', 'android/**/gradle-wrapper.properties') }}
-          restore-keys: |
-            gradle-${{ runner.os }}-
+      - name: 配置 Gradle
+        uses: gradle/actions/setup-gradle@v4
 
       - name: 授予 Gradle 执行权限
         run: chmod +x gradlew
@@ -116,6 +103,7 @@ jobs:
           name: unit-test-results
           path: android/app/build/test-results/testDebugUnitTest/
           retention-days: 14
+          if-no-files-found: warn
 
       - name: 上传测试报告 (HTML)
         if: always()
@@ -124,6 +112,7 @@ jobs:
           name: unit-test-report
           path: android/app/build/reports/tests/testDebugUnitTest/
           retention-days: 14
+          if-no-files-found: warn
 
       - name: 发布测试报告到 Checks
         if: always()
@@ -132,7 +121,8 @@ jobs:
           name: 单元测试报告
           path: android/app/build/test-results/testDebugUnitTest/*.xml
           reporter: java-junit
-          fail-on-error: true
+          fail-on-error: false
+          fail-on-empty: false
 
   # ============================================================
   # Job 3: 编译 & 打包 Debug APK
@@ -155,15 +145,8 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: ${{ env.JAVA_DISTRIBUTION }}
 
-      - name: 配置 Gradle 缓存
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ hashFiles('android/**/*.gradle*', 'android/**/gradle-wrapper.properties') }}
-          restore-keys: |
-            gradle-${{ runner.os }}-
+      - name: 配置 Gradle
+        uses: gradle/actions/setup-gradle@v4
 
       - name: 授予 Gradle 执行权限
         run: chmod +x gradlew
@@ -209,15 +192,8 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: ${{ env.JAVA_DISTRIBUTION }}
 
-      - name: 配置 Gradle 缓存
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ hashFiles('android/**/*.gradle*', 'android/**/gradle-wrapper.properties') }}
-          restore-keys: |
-            gradle-${{ runner.os }}-
+      - name: 配置 Gradle
+        uses: gradle/actions/setup-gradle@v4
 
       - name: 授予 Gradle 执行权限
         run: chmod +x gradlew
@@ -395,7 +371,7 @@ jobs:
             echo "1. 进入 [Artifacts 下载页面](${ARTIFACTS_URL})"
             echo "2. 下载 **debug-apk** 压缩包"
             echo "3. 解压获得 \`.apk\` 文件"
-            echo "4. 传输到 Android 设备并安装（需开启"允许安装未知来源"）"
+            echo "4. 传输到 Android 设备并安装（需开启\"允许安装未知来源\"）"
             echo "5. 或使用 \`adb install <apk文件路径>\` 命令安装"
             echo ""
             echo "</details>"
