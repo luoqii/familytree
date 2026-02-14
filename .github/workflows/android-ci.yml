@@ -1,0 +1,525 @@
+name: Android CI - 编译 / 测试 / 打包
+
+on:
+  push:
+    branches: [ main, master, develop ]
+    paths:
+      - 'android/**'
+      - '.github/workflows/android-ci.yml'
+  pull_request:
+    branches: [ main, master, develop ]
+    paths:
+      - 'android/**'
+      - '.github/workflows/android-ci.yml'
+  workflow_dispatch:
+
+# 同一分支/PR 新推送时取消旧的运行
+concurrency:
+  group: android-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+  actions: read
+
+env:
+  JAVA_VERSION: '17'
+  JAVA_DISTRIBUTION: 'temurin'
+
+jobs:
+  # ============================================================
+  # Job 1: Lint 检查
+  # ============================================================
+  lint:
+    name: Lint 检查
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 配置 JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+
+      - name: 配置 Gradle 缓存
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('android/**/*.gradle*', 'android/**/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
+      - name: 授予 Gradle 执行权限
+        run: chmod +x gradlew
+
+      - name: 运行 Lint 检查
+        run: ./gradlew lintDebug --stacktrace
+
+      - name: 上传 Lint 报告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-report
+          path: android/app/build/reports/lint-results-debug.html
+          retention-days: 14
+
+  # ============================================================
+  # Job 2: 单元测试
+  # ============================================================
+  unit-test:
+    name: 单元测试
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 配置 JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+
+      - name: 配置 Gradle 缓存
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('android/**/*.gradle*', 'android/**/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
+      - name: 授予 Gradle 执行权限
+        run: chmod +x gradlew
+
+      - name: 运行单元测试
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: 上传测试结果 (JUnit XML)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-results
+          path: android/app/build/test-results/testDebugUnitTest/
+          retention-days: 14
+
+      - name: 上传测试报告 (HTML)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-report
+          path: android/app/build/reports/tests/testDebugUnitTest/
+          retention-days: 14
+
+      - name: 发布测试报告到 Checks
+        if: always()
+        uses: dorny/test-reporter@v1
+        with:
+          name: 单元测试报告
+          path: android/app/build/test-results/testDebugUnitTest/*.xml
+          reporter: java-junit
+          fail-on-error: true
+
+  # ============================================================
+  # Job 3: 编译 & 打包 Debug APK
+  # ============================================================
+  build-debug:
+    name: 编译 Debug APK
+    runs-on: ubuntu-latest
+    needs: [ lint, unit-test ]
+    defaults:
+      run:
+        working-directory: android
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 配置 JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+
+      - name: 配置 Gradle 缓存
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('android/**/*.gradle*', 'android/**/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
+      - name: 授予 Gradle 执行权限
+        run: chmod +x gradlew
+
+      - name: 编译 Debug APK
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: 重命名 APK (附加版本和构建号)
+        run: |
+          VERSION_NAME=$(grep 'versionName' app/build.gradle.kts | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          BUILD_NUMBER=${{ github.run_number }}
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          APK_NAME="FamilyTree-debug-v${VERSION_NAME}-build${BUILD_NUMBER}-${SHORT_SHA}.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "app/build/outputs/apk/debug/${APK_NAME}"
+          echo "APK_NAME=${APK_NAME}" >> $GITHUB_ENV
+          echo "APK_PATH=app/build/outputs/apk/debug/${APK_NAME}" >> $GITHUB_ENV
+
+      - name: 上传 Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-apk
+          path: android/app/build/outputs/apk/debug/FamilyTree-*.apk
+          retention-days: 30
+
+  # ============================================================
+  # Job 4: 编译 & 打包 Release APK
+  # ============================================================
+  build-release:
+    name: 编译 Release APK
+    runs-on: ubuntu-latest
+    needs: [ lint, unit-test ]
+    defaults:
+      run:
+        working-directory: android
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 配置 JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+
+      - name: 配置 Gradle 缓存
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('android/**/*.gradle*', 'android/**/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
+      - name: 授予 Gradle 执行权限
+        run: chmod +x gradlew
+
+      - name: 编译 Release APK (未签名)
+        run: ./gradlew assembleRelease --stacktrace
+
+      - name: 重命名 Release APK
+        run: |
+          VERSION_NAME=$(grep 'versionName' app/build.gradle.kts | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          BUILD_NUMBER=${{ github.run_number }}
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          APK_NAME="FamilyTree-release-v${VERSION_NAME}-build${BUILD_NUMBER}-${SHORT_SHA}.apk"
+          cp app/build/outputs/apk/release/app-release-unsigned.apk "app/build/outputs/apk/release/${APK_NAME}"
+          echo "APK_NAME=${APK_NAME}" >> $GITHUB_ENV
+
+      - name: 上传 Release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-apk
+          path: android/app/build/outputs/apk/release/FamilyTree-*.apk
+          retention-days: 30
+
+  # ============================================================
+  # Job 5: 在 PR 中发布构建摘要评论
+  # ============================================================
+  comment-on-pr:
+    name: 发布 PR 构建摘要
+    runs-on: ubuntu-latest
+    # 即使上游 job 失败也运行，以便报告失败信息；但仅在 PR 事件时触发
+    if: always() && github.event_name == 'pull_request' && !cancelled()
+    needs: [ lint, unit-test, build-debug, build-release ]
+    permissions:
+      pull-requests: write
+      actions: read
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 下载所有 Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+        continue-on-error: true
+
+      - name: 收集测试结果
+        id: test-results
+        if: always()
+        run: |
+          echo "## 📊 单元测试结果" >> test_summary.md
+          echo "" >> test_summary.md
+
+          # 解析 JUnit XML 测试结果
+          TOTAL=0
+          PASSED=0
+          FAILED=0
+          ERRORS=0
+          SKIPPED=0
+
+          if [ -d "artifacts/unit-test-results" ]; then
+            for xml_file in artifacts/unit-test-results/*.xml; do
+              if [ -f "$xml_file" ]; then
+                FILE_TESTS=$(grep -oP 'tests="\K[0-9]+' "$xml_file" | head -1 || echo "0")
+                FILE_FAILURES=$(grep -oP 'failures="\K[0-9]+' "$xml_file" | head -1 || echo "0")
+                FILE_ERRORS=$(grep -oP 'errors="\K[0-9]+' "$xml_file" | head -1 || echo "0")
+                FILE_SKIPPED=$(grep -oP 'skipped="\K[0-9]+' "$xml_file" | head -1 || echo "0")
+
+                TOTAL=$((TOTAL + FILE_TESTS))
+                FAILED=$((FAILED + FILE_FAILURES))
+                ERRORS=$((ERRORS + FILE_ERRORS))
+                SKIPPED=$((SKIPPED + FILE_SKIPPED))
+              fi
+            done
+            PASSED=$((TOTAL - FAILED - ERRORS - SKIPPED))
+
+            if [ "$FAILED" -eq 0 ] && [ "$ERRORS" -eq 0 ]; then
+              echo "| 状态 | ✅ 全部通过 |" >> test_summary.md
+            else
+              echo "| 状态 | ❌ 存在失败 |" >> test_summary.md
+            fi
+            echo "|------|------|" >> test_summary.md
+            echo "| 总计 | $TOTAL |" >> test_summary.md
+            echo "| ✅ 通过 | $PASSED |" >> test_summary.md
+            echo "| ❌ 失败 | $FAILED |" >> test_summary.md
+            echo "| ⚠️ 错误 | $ERRORS |" >> test_summary.md
+            echo "| ⏭️ 跳过 | $SKIPPED |" >> test_summary.md
+          else
+            echo "⚠️ 未找到单元测试结果" >> test_summary.md
+          fi
+
+          echo "" >> test_summary.md
+          cat test_summary.md
+
+          # 设置输出
+          echo "total=$TOTAL" >> $GITHUB_OUTPUT
+          echo "passed=$PASSED" >> $GITHUB_OUTPUT
+          echo "failed=$FAILED" >> $GITHUB_OUTPUT
+
+      - name: 构建 PR 评论内容
+        id: build-comment
+        if: always()
+        env:
+          RUN_ID: ${{ github.run_id }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          SHORT_SHA=$(echo "$SHA" | cut -c1-7)
+          WORKFLOW_URL="https://github.com/${REPO}/actions/runs/${RUN_ID}"
+          ARTIFACTS_URL="${WORKFLOW_URL}#artifacts"
+
+          LINT_STATUS="${{ needs.lint.result }}"
+          TEST_STATUS="${{ needs.unit-test.result }}"
+          DEBUG_STATUS="${{ needs.build-debug.result }}"
+          RELEASE_STATUS="${{ needs.build-release.result }}"
+
+          status_icon() {
+            case "$1" in
+              success)  echo "✅" ;;
+              failure)  echo "❌" ;;
+              skipped)  echo "⏭️" ;;
+              cancelled) echo "🚫" ;;
+              *)        echo "⚠️" ;;
+            esac
+          }
+
+          {
+            echo "## 🤖 Android CI 构建报告"
+            echo ""
+            echo "**提交:** \`${SHORT_SHA}\` | **构建:** [#${RUN_ID}](${WORKFLOW_URL})"
+            echo ""
+            echo "---"
+            echo ""
+            echo "### 📋 构建流水线状态"
+            echo ""
+            echo "| 阶段 | 状态 | 说明 |"
+            echo "|------|------|------|"
+            echo "| 🔍 Lint 检查 | $(status_icon $LINT_STATUS) ${LINT_STATUS} | 代码规范与潜在问题检查 |"
+            echo "| 🧪 单元测试 | $(status_icon $TEST_STATUS) ${TEST_STATUS} | JUnit 本地单元测试 |"
+            echo "| 🔨 Debug 构建 | $(status_icon $DEBUG_STATUS) ${DEBUG_STATUS} | Debug APK 编译打包 |"
+            echo "| 📦 Release 构建 | $(status_icon $RELEASE_STATUS) ${RELEASE_STATUS} | Release APK 编译打包 |"
+          } > pr_comment.md
+
+          # 追加测试摘要
+          if [ -f test_summary.md ]; then
+            echo "" >> pr_comment.md
+            echo "---" >> pr_comment.md
+            echo "" >> pr_comment.md
+            cat test_summary.md >> pr_comment.md
+          fi
+
+          # APK 下载区域
+          {
+            echo ""
+            echo "---"
+            echo ""
+            echo "### 📥 构件下载"
+            echo ""
+            echo "> 以下构件可在 [Actions Artifacts](${ARTIFACTS_URL}) 页面下载（需登录 GitHub）。"
+            echo ""
+            echo "| 构件 | 说明 | 保留天数 |"
+            echo "|------|------|----------|"
+            echo "| 📱 **debug-apk** | Debug 版本 APK（可直接安装测试） | 30 天 |"
+            echo "| 📦 **release-apk** | Release 版本 APK（未签名） | 30 天 |"
+            echo "| 📊 **unit-test-report** | 单元测试 HTML 报告 | 14 天 |"
+            echo "| 📊 **unit-test-results** | 单元测试 JUnit XML 原始结果 | 14 天 |"
+            echo "| 🔍 **lint-report** | Lint 检查 HTML 报告 | 14 天 |"
+            echo ""
+            echo "---"
+            echo ""
+            echo "<details>"
+            echo "<summary>💡 如何使用 Debug APK</summary>"
+            echo ""
+            echo "1. 进入 [Artifacts 下载页面](${ARTIFACTS_URL})"
+            echo "2. 下载 **debug-apk** 压缩包"
+            echo "3. 解压获得 \`.apk\` 文件"
+            echo "4. 传输到 Android 设备并安装（需开启"允许安装未知来源"）"
+            echo "5. 或使用 \`adb install <apk文件路径>\` 命令安装"
+            echo ""
+            echo "</details>"
+            echo ""
+            echo "---"
+            echo "<sub>🤖 此评论由 GitHub Actions 自动生成 | $(date -u '+%Y-%m-%d %H:%M:%S UTC')</sub>"
+          } >> pr_comment.md
+
+          cat pr_comment.md
+
+      - name: 查找已有评论
+        if: always()
+        uses: peter-evans/find-comment@v3
+        id: find-comment
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: 'github-actions[bot]'
+          body-includes: '🤖 Android CI 构建报告'
+
+      - name: 创建或更新 PR 评论
+        if: always()
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          comment-id: ${{ steps.find-comment.outputs.comment-id }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body-path: pr_comment.md
+          edit-mode: replace
+
+  # ============================================================
+  # Job 6: 生成 GitHub Actions Job Summary
+  # (无论 push 还是 PR 都会显示在 Actions 页面)
+  # ============================================================
+  build-summary:
+    name: 生成构建摘要
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [ lint, unit-test, build-debug, build-release ]
+
+    steps:
+      - name: 下载测试结果
+        if: always()
+        uses: actions/download-artifact@v4
+        with:
+          name: unit-test-results
+          path: test-results
+        continue-on-error: true
+
+      - name: 生成 Job Summary
+        if: always()
+        env:
+          RUN_ID: ${{ github.run_id }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          SHORT_SHA=$(echo "$SHA" | cut -c1-7)
+          WORKFLOW_URL="https://github.com/${REPO}/actions/runs/${RUN_ID}"
+          ARTIFACTS_URL="${WORKFLOW_URL}#artifacts"
+
+          LINT_STATUS="${{ needs.lint.result }}"
+          TEST_STATUS="${{ needs.unit-test.result }}"
+          DEBUG_STATUS="${{ needs.build-debug.result }}"
+          RELEASE_STATUS="${{ needs.build-release.result }}"
+
+          status_icon() {
+            case "$1" in
+              success)  echo "✅" ;;
+              failure)  echo "❌" ;;
+              skipped)  echo "⏭️" ;;
+              cancelled) echo "🚫" ;;
+              *)        echo "⚠️" ;;
+            esac
+          }
+
+          {
+            echo "## 🤖 Android CI 构建摘要"
+            echo ""
+            echo "**提交:** \`${SHORT_SHA}\` | **时间:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+            echo ""
+            echo "### 📋 流水线状态"
+            echo ""
+            echo "| 阶段 | 状态 |"
+            echo "|------|------|"
+            echo "| 🔍 Lint 检查 | $(status_icon $LINT_STATUS) ${LINT_STATUS} |"
+            echo "| 🧪 单元测试 | $(status_icon $TEST_STATUS) ${TEST_STATUS} |"
+            echo "| 🔨 Debug 构建 | $(status_icon $DEBUG_STATUS) ${DEBUG_STATUS} |"
+            echo "| 📦 Release 构建 | $(status_icon $RELEASE_STATUS) ${RELEASE_STATUS} |"
+          } >> $GITHUB_STEP_SUMMARY
+
+          # 解析测试结果
+          TOTAL=0
+          PASSED=0
+          FAILED=0
+
+          if [ -d "test-results" ]; then
+            for xml_file in test-results/*.xml; do
+              if [ -f "$xml_file" ]; then
+                FILE_TESTS=$(grep -oP 'tests="\K[0-9]+' "$xml_file" | head -1 || echo "0")
+                FILE_FAILURES=$(grep -oP 'failures="\K[0-9]+' "$xml_file" | head -1 || echo "0")
+                FILE_ERRORS=$(grep -oP 'errors="\K[0-9]+' "$xml_file" | head -1 || echo "0")
+                TOTAL=$((TOTAL + FILE_TESTS))
+                FAILED=$((FAILED + FILE_FAILURES + FILE_ERRORS))
+              fi
+            done
+            PASSED=$((TOTAL - FAILED))
+
+            {
+              echo ""
+              echo "### 📊 测试结果"
+              echo ""
+              echo "| 指标 | 数值 |"
+              echo "|------|------|"
+              echo "| 总计 | $TOTAL |"
+              echo "| ✅ 通过 | $PASSED |"
+              echo "| ❌ 失败 | $FAILED |"
+            } >> $GITHUB_STEP_SUMMARY
+          fi
+
+          {
+            echo ""
+            echo "### 📥 构件下载"
+            echo ""
+            echo "前往 [Artifacts](${ARTIFACTS_URL}) 下载："
+            echo "- 📱 **debug-apk** — Debug APK"
+            echo "- 📦 **release-apk** — Release APK (未签名)"
+            echo "- 📊 **unit-test-report** — 测试报告"
+            echo "- 🔍 **lint-report** — Lint 报告"
+          } >> $GITHUB_STEP_SUMMARY
