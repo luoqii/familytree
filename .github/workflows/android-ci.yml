@@ -27,6 +27,7 @@ permissions:
 env:
   JAVA_VERSION: '17'
   JAVA_DISTRIBUTION: 'temurin'
+  GRADLE_VERSION: '8.5'
 
 jobs:
   # ============================================================
@@ -49,14 +50,13 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: ${{ env.JAVA_DISTRIBUTION }}
 
-      - name: 配置 Gradle
+      - name: 配置 Gradle (直接安装，不依赖 wrapper jar)
         uses: gradle/actions/setup-gradle@v4
-
-      - name: 授予 Gradle 执行权限
-        run: chmod +x gradlew
+        with:
+          gradle-version: ${{ env.GRADLE_VERSION }}
 
       - name: 运行 Lint 检查
-        run: ./gradlew lintDebug --stacktrace
+        run: gradle lintDebug --stacktrace
 
       - name: 上传 Lint 报告
         if: always()
@@ -87,14 +87,13 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: ${{ env.JAVA_DISTRIBUTION }}
 
-      - name: 配置 Gradle
+      - name: 配置 Gradle (直接安装，不依赖 wrapper jar)
         uses: gradle/actions/setup-gradle@v4
-
-      - name: 授予 Gradle 执行权限
-        run: chmod +x gradlew
+        with:
+          gradle-version: ${{ env.GRADLE_VERSION }}
 
       - name: 运行单元测试
-        run: ./gradlew testDebugUnitTest --stacktrace
+        run: gradle testDebugUnitTest --stacktrace
 
       - name: 上传测试结果 (JUnit XML)
         if: always()
@@ -145,14 +144,13 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: ${{ env.JAVA_DISTRIBUTION }}
 
-      - name: 配置 Gradle
+      - name: 配置 Gradle (直接安装，不依赖 wrapper jar)
         uses: gradle/actions/setup-gradle@v4
-
-      - name: 授予 Gradle 执行权限
-        run: chmod +x gradlew
+        with:
+          gradle-version: ${{ env.GRADLE_VERSION }}
 
       - name: 编译 Debug APK
-        run: ./gradlew assembleDebug --stacktrace
+        run: gradle assembleDebug --stacktrace
 
       - name: 重命名 APK (附加版本和构建号)
         run: |
@@ -192,14 +190,13 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: ${{ env.JAVA_DISTRIBUTION }}
 
-      - name: 配置 Gradle
+      - name: 配置 Gradle (直接安装，不依赖 wrapper jar)
         uses: gradle/actions/setup-gradle@v4
-
-      - name: 授予 Gradle 执行权限
-        run: chmod +x gradlew
+        with:
+          gradle-version: ${{ env.GRADLE_VERSION }}
 
       - name: 编译 Release APK (未签名)
-        run: ./gradlew assembleRelease --stacktrace
+        run: gradle assembleRelease --stacktrace
 
       - name: 重命名 Release APK
         run: |
