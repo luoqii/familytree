@@ -1,3 +1,9 @@
+# 总览
+家庭树，用于记录，浏览族谱信息
+
+## 数据模型
+
+
 ## 目录结构
 android android app 专用目录  
 ios ios app专用目录  
