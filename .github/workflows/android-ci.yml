@@ -124,12 +124,168 @@ jobs:
           fail-on-empty: false
 
   # ============================================================
-  # Job 3: 编译 & 打包 Debug APK
+  # Job 3: Roborazzi 截图测试
+  # ============================================================
+  screenshot-test:
+    name: 截图测试 (Roborazzi)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 配置 JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+
+      - name: 配置 Gradle (直接安装，不依赖 wrapper jar)
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: ${{ env.GRADLE_VERSION }}
+
+      - name: 录制截图
+        run: gradle recordRoborazziDebug --stacktrace
+
+      - name: 生成截图 HTML 报告
+        if: always()
+        run: |
+          SCREENSHOT_DIR="app/screenshots"
+          REPORT_FILE="app/build/screenshot-report.html"
+          mkdir -p "$(dirname $REPORT_FILE)"
+
+          # 查找所有截图文件
+          SCREENSHOTS=$(find "$SCREENSHOT_DIR" -name "*.png" 2>/dev/null | sort)
+          COUNT=$(echo "$SCREENSHOTS" | grep -c ".png" || echo "0")
+
+          cat > "$REPORT_FILE" << 'HTMLHEADER'
+          <!DOCTYPE html>
+          <html lang="zh-CN">
+          <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>FamilyTree 截图测试报告</title>
+          <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f5f5; color: #333; padding: 20px; }
+          h1 { text-align: center; margin-bottom: 8px; color: #2E7D32; }
+          .subtitle { text-align: center; color: #666; margin-bottom: 30px; }
+          .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; max-width: 1400px; margin: 0 auto; }
+          .card { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); transition: transform 0.2s; }
+          .card:hover { transform: translateY(-4px); box-shadow: 0 4px 16px rgba(0,0,0,0.15); }
+          .card img { width: 100%; height: auto; display: block; border-bottom: 1px solid #eee; }
+          .card-title { padding: 12px 16px; font-weight: 600; font-size: 14px; color: #444; }
+          .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-left: 8px; }
+          .badge-light { background: #E8F5E9; color: #2E7D32; }
+          .badge-dark { background: #333; color: #fff; }
+          .header-info { text-align: center; margin-bottom: 20px; color: #888; font-size: 13px; }
+          </style>
+          </head>
+          <body>
+          <h1>🌳 FamilyTree 截图测试报告</h1>
+          <p class="subtitle">Roborazzi 自动截图 · Compose UI</p>
+          HTMLHEADER
+
+          # 去掉heredoc缩进
+          sed -i 's/^          //' "$REPORT_FILE"
+
+          TIMESTAMP=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
+          echo "<p class=\"header-info\">生成时间: ${TIMESTAMP} | 截图数量: ${COUNT}</p>" >> "$REPORT_FILE"
+          echo '<div class="grid">' >> "$REPORT_FILE"
+
+          if [ -n "$SCREENSHOTS" ] && [ "$COUNT" -gt 0 ]; then
+            for img in $SCREENSHOTS; do
+              FILENAME=$(basename "$img" .png)
+              # base64 encode for embedding
+              B64=$(base64 -w0 "$img")
+
+              # 判断是否为深色主题截图
+              if echo "$FILENAME" | grep -q "_dark"; then
+                BADGE='<span class="badge badge-dark">深色</span>'
+                DISPLAY_NAME=$(echo "$FILENAME" | sed 's/_dark$//')
+              else
+                BADGE='<span class="badge badge-light">浅色</span>'
+                DISPLAY_NAME="$FILENAME"
+              fi
+
+              cat >> "$REPORT_FILE" << EOF
+          <div class="card">
+            <img src="data:image/png;base64,${B64}" alt="${FILENAME}" loading="lazy">
+            <div class="card-title">${DISPLAY_NAME} ${BADGE}</div>
+          </div>
+          EOF
+            done
+          else
+            echo '<p style="text-align:center;color:#999;grid-column:1/-1;padding:40px;">未找到截图文件</p>' >> "$REPORT_FILE"
+          fi
+
+          echo '</div></body></html>' >> "$REPORT_FILE"
+
+          # 清理HTML中的heredoc缩进
+          sed -i 's/^          //' "$REPORT_FILE"
+
+          echo "screenshot_count=${COUNT}" >> $GITHUB_ENV
+          echo "✅ 生成截图报告: ${COUNT} 张截图"
+
+      - name: 生成 Job Summary 截图预览
+        if: always()
+        run: |
+          SCREENSHOT_DIR="app/screenshots"
+          SCREENSHOTS=$(find "$SCREENSHOT_DIR" -name "*.png" 2>/dev/null | sort)
+          COUNT=$(echo "$SCREENSHOTS" | grep -c ".png" || echo "0")
+
+          {
+            echo "## 📸 Roborazzi 截图测试"
+            echo ""
+            echo "共捕获 **${COUNT}** 张屏幕截图"
+            echo ""
+          } >> $GITHUB_STEP_SUMMARY
+
+          if [ -n "$SCREENSHOTS" ] && [ "$COUNT" -gt 0 ]; then
+            echo "| 屏幕 | 主题 |" >> $GITHUB_STEP_SUMMARY
+            echo "|------|------|" >> $GITHUB_STEP_SUMMARY
+            for img in $SCREENSHOTS; do
+              FILENAME=$(basename "$img" .png)
+              if echo "$FILENAME" | grep -q "_dark"; then
+                DISPLAY_NAME=$(echo "$FILENAME" | sed 's/_dark$//')
+                echo "| ${DISPLAY_NAME} | 🌙 深色 |" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "| ${FILENAME} | ☀️ 浅色 |" >> $GITHUB_STEP_SUMMARY
+              fi
+            done
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "> 💡 下载 **screenshot-report** 构件并打开 HTML 文件即可预览所有截图" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: 上传截图 (原始 PNG)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: android/app/screenshots/
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: 上传截图 HTML 报告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshot-report
+          path: android/app/build/screenshot-report.html
+          retention-days: 14
+          if-no-files-found: warn
+
+  # ============================================================
+  # Job 4: 编译 & 打包 Debug APK
   # ============================================================
   build-debug:
     name: 编译 Debug APK
     runs-on: ubuntu-latest
-    needs: [ lint, unit-test ]
+    needs: [ lint, unit-test, screenshot-test ]
     defaults:
       run:
         working-directory: android
@@ -175,7 +331,7 @@ jobs:
   build-release:
     name: 编译 Release APK
     runs-on: ubuntu-latest
-    needs: [ lint, unit-test ]
+    needs: [ lint, unit-test, screenshot-test ]
     defaults:
       run:
         working-directory: android
@@ -222,7 +378,7 @@ jobs:
     runs-on: ubuntu-latest
     # 即使上游 job 失败也运行，以便报告失败信息；但仅在 PR 事件时触发
     if: always() && github.event_name == 'pull_request' && !cancelled()
-    needs: [ lint, unit-test, build-debug, build-release ]
+    needs: [ lint, unit-test, screenshot-test, build-debug, build-release ]
     permissions:
       pull-requests: write
       actions: read
@@ -305,6 +461,7 @@ jobs:
 
           LINT_STATUS="${{ needs.lint.result }}"
           TEST_STATUS="${{ needs.unit-test.result }}"
+          SCREENSHOT_STATUS="${{ needs.screenshot-test.result }}"
           DEBUG_STATUS="${{ needs.build-debug.result }}"
           RELEASE_STATUS="${{ needs.build-release.result }}"
 
@@ -331,6 +488,7 @@ jobs:
             echo "|------|------|------|"
             echo "| 🔍 Lint 检查 | $(status_icon $LINT_STATUS) ${LINT_STATUS} | 代码规范与潜在问题检查 |"
             echo "| 🧪 单元测试 | $(status_icon $TEST_STATUS) ${TEST_STATUS} | JUnit 本地单元测试 |"
+            echo "| 📸 截图测试 | $(status_icon $SCREENSHOT_STATUS) ${SCREENSHOT_STATUS} | Roborazzi UI 截图测试 |"
             echo "| 🔨 Debug 构建 | $(status_icon $DEBUG_STATUS) ${DEBUG_STATUS} | Debug APK 编译打包 |"
             echo "| 📦 Release 构建 | $(status_icon $RELEASE_STATUS) ${RELEASE_STATUS} | Release APK 编译打包 |"
           } > pr_comment.md
@@ -356,6 +514,8 @@ jobs:
             echo "|------|------|----------|"
             echo "| 📱 **debug-apk** | Debug 版本 APK（可直接安装测试） | 30 天 |"
             echo "| 📦 **release-apk** | Release 版本 APK（未签名） | 30 天 |"
+            echo "| 📸 **screenshot-report** | 截图测试 HTML 报告（打开即可预览所有截图） | 14 天 |"
+            echo "| 📸 **screenshots** | 截图原始 PNG 文件 | 14 天 |"
             echo "| 📊 **unit-test-report** | 单元测试 HTML 报告 | 14 天 |"
             echo "| 📊 **unit-test-results** | 单元测试 JUnit XML 原始结果 | 14 天 |"
             echo "| 🔍 **lint-report** | Lint 检查 HTML 报告 | 14 天 |"
@@ -405,7 +565,7 @@ jobs:
     name: 生成构建摘要
     runs-on: ubuntu-latest
     if: always()
-    needs: [ lint, unit-test, build-debug, build-release ]
+    needs: [ lint, unit-test, screenshot-test, build-debug, build-release ]
 
     steps:
       - name: 下载测试结果
@@ -429,6 +589,7 @@ jobs:
 
           LINT_STATUS="${{ needs.lint.result }}"
           TEST_STATUS="${{ needs.unit-test.result }}"
+          SCREENSHOT_STATUS="${{ needs.screenshot-test.result }}"
           DEBUG_STATUS="${{ needs.build-debug.result }}"
           RELEASE_STATUS="${{ needs.build-release.result }}"
 
@@ -453,6 +614,7 @@ jobs:
             echo "|------|------|"
             echo "| 🔍 Lint 检查 | $(status_icon $LINT_STATUS) ${LINT_STATUS} |"
             echo "| 🧪 单元测试 | $(status_icon $TEST_STATUS) ${TEST_STATUS} |"
+            echo "| 📸 截图测试 | $(status_icon $SCREENSHOT_STATUS) ${SCREENSHOT_STATUS} |"
             echo "| 🔨 Debug 构建 | $(status_icon $DEBUG_STATUS) ${DEBUG_STATUS} |"
             echo "| 📦 Release 构建 | $(status_icon $RELEASE_STATUS) ${RELEASE_STATUS} |"
           } >> $GITHUB_STEP_SUMMARY
@@ -493,6 +655,8 @@ jobs:
             echo "前往 [Artifacts](${ARTIFACTS_URL}) 下载："
             echo "- 📱 **debug-apk** — Debug APK"
             echo "- 📦 **release-apk** — Release APK (未签名)"
+            echo "- 📸 **screenshot-report** — 截图测试 HTML 报告（可直接预览）"
+            echo "- 📸 **screenshots** — 截图原始 PNG 文件"
             echo "- 📊 **unit-test-report** — 测试报告"
             echo "- 🔍 **lint-report** — Lint 报告"
           } >> $GITHUB_STEP_SUMMARY

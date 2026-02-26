@@ -81,6 +81,11 @@ lint/tmp/
 # Kotlin
 .kotlin/
 
+# Roborazzi comparison output (generated during CI, not committed)
+**/build/outputs/roborazzi/
+*_compare.png
+*_actual.png
+
 # OS files
 .DS_Store
 Thumbs.db
