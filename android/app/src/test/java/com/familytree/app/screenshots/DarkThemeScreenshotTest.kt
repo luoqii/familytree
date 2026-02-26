@@ -15,10 +15,13 @@ import org.robolectric.annotation.GraphicsMode
 
 /**
  * 深色主题截图测试
+ *
+ * 深色主题通过 FamilyTreeTheme(darkTheme = true) 参数控制，
+ * 不依赖 Robolectric 系统级 night 限定符。
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(sdk = [33], qualifiers = "w400dp-h800dp-xxhdpi-night")
+@Config(sdk = [33], qualifiers = "w400dp-h800dp-xxhdpi")
 class DarkThemeScreenshotTest {
 
     @get:Rule
