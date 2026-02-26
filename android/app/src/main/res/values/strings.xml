@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">家族树</string>
+
+    <!-- 导航 -->
+    <string name="nav_home">首页</string>
+    <string name="nav_tree">族谱</string>
+    <string name="nav_members">成员</string>
+    <string name="nav_search">搜索</string>
+    <string name="nav_settings">设置</string>
+
+    <!-- 首页 -->
+    <string name="home_welcome">欢迎使用家族树</string>
+    <string name="home_subtitle">记录家族历史，传承血脉亲情</string>
+    <string name="home_overview">家族概览</string>
+    <string name="home_member_count">成员总数</string>
+    <string name="home_generation_count">世代数</string>
+    <string name="home_quick_actions">快捷操作</string>
+    <string name="home_add_member">添加家族成员</string>
+    <string name="home_add_member_desc">录入新的家族成员信息</string>
+    <string name="home_view_tree">查看族谱</string>
+    <string name="home_view_tree_desc">以树形结构浏览家族关系</string>
+
+    <!-- 成员 -->
+    <string name="member_name">姓名</string>
+    <string name="member_gender">性别</string>
+    <string name="member_gender_male">男</string>
+    <string name="member_gender_female">女</string>
+    <string name="member_birth_date">出生日期</string>
+    <string name="member_death_date">去世日期</string>
+    <string name="member_birth_place">出生地</string>
+    <string name="member_notes">备注</string>
+    <string name="member_father">父亲</string>
+    <string name="member_mother">母亲</string>
+    <string name="member_spouse">配偶</string>
+    <string name="member_children">子女</string>
+    <string name="member_generation">世代</string>
+
+    <!-- 搜索 -->
+    <string name="search_hint">输入姓名搜索…</string>
+    <string name="search_no_results">未找到匹配的成员</string>
+
+    <!-- 设置 -->
+    <string name="settings_general">通用</string>
+    <string name="settings_dark_mode">深色模式</string>
+    <string name="settings_language">语言</string>
+    <string name="settings_data">数据</string>
+    <string name="settings_backup">备份与恢复</string>
+    <string name="settings_share">分享家族树</string>
+    <string name="settings_about">关于家族树</string>
+    <string name="settings_version">版本 %s</string>
+
+    <!-- 通用 -->
+    <string name="action_save">保存</string>
+    <string name="action_cancel">取消</string>
+    <string name="action_delete">删除</string>
+    <string name="action_edit">编辑</string>
+    <string name="action_add">添加</string>
+    <string name="confirm_delete">确认删除</string>
+    <string name="confirm_delete_message">确定要删除此成员吗？此操作不可撤销。</string>
+</resources>

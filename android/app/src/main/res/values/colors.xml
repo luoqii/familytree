@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 主色调 -->
+    <color name="primary">#FF2E7D32</color>
+    <color name="primary_variant">#FF1B5E20</color>
+    <color name="on_primary">#FFFFFFFF</color>
+
+    <!-- 次要色调 -->
+    <color name="secondary">#FF795548</color>
+    <color name="secondary_variant">#FF4E342E</color>
+    <color name="on_secondary">#FFFFFFFF</color>
+
+    <!-- 背景 -->
+    <color name="background">#FFFFFBF5</color>
+    <color name="on_background">#FF1C1B1F</color>
+    <color name="surface">#FFFFFBF5</color>
+    <color name="on_surface">#FF1C1B1F</color>
+
+    <!-- 错误 -->
+    <color name="error">#FFBA1A1A</color>
+    <color name="on_error">#FFFFFFFF</color>
+
+    <!-- 其他 -->
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+</resources>
