@@ -19,11 +19,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -32,21 +31,24 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.familytree.app.data.model.FamilyMember
 import com.familytree.app.ui.viewmodel.FamilyViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 private const val NODE_WIDTH = 160f
 private const val NODE_HEIGHT = 80f
 private const val HORIZONTAL_SPACING = 40f
 private const val VERTICAL_SPACING = 100f
+private const val MAX_TREE_RENDER_NODES = 1200
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,10 +57,6 @@ fun TreeScreen(
     onMemberClick: (String) -> Unit
 ) {
     val allMembers by viewModel.allMembers.collectAsState()
-
-    LaunchedEffect(allMembers) {
-        viewModel.loadTreeData()
-    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         TopAppBar(
@@ -112,26 +110,79 @@ fun TreeScreen(
     }
 }
 
-private data class LayoutNode(
+internal data class LayoutNode(
     val member: FamilyMember,
     val x: Float,
     val y: Float,
     val children: List<LayoutNode>
 )
 
+internal data class LayoutBuildResult(
+    val roots: List<LayoutNode>,
+    val renderedNodeCount: Int,
+    val isTruncated: Boolean
+)
+
+private data class SubtreeLayout(
+    val node: LayoutNode,
+    val maxX: Float
+)
+
+private data class TreeLayoutUiState(
+    val nodes: List<LayoutNode> = emptyList(),
+    val hitRects: List<Pair<Rect, String>> = emptyList(),
+    val renderedNodeCount: Int = 0,
+    val isTruncated: Boolean = false
+)
+
+private class LayoutTraverseState(
+    val maxNodes: Int
+) {
+    var renderedNodeCount: Int = 0
+    var isTruncated: Boolean = false
+}
+
+private val treeMemberComparator = compareBy<FamilyMember>({ it.lastName }, { it.firstName }, { it.id })
+
 @Composable
 private fun FamilyTreeCanvas(
     members: List<FamilyMember>,
     onMemberClick: (String) -> Unit
 ) {
-    val surfaceColor = MaterialTheme.colorScheme.surface
     val onSurfaceColor = MaterialTheme.colorScheme.onSurface
     val maleColor = Color(0xFF42A5F5)
     val femaleColor = Color(0xFFEF5350)
     val lineColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
 
-    val layoutNodes = remember(members) { buildLayout(members) }
-    val hitRects = remember(layoutNodes) { buildHitRects(layoutNodes) }
+    val titlePaint = remember(onSurfaceColor) {
+        android.graphics.Paint().apply {
+            color = onSurfaceColor.toArgb()
+            textSize = 32f
+            textAlign = android.graphics.Paint.Align.CENTER
+            isAntiAlias = true
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+        }
+    }
+    val subtitlePaint = remember {
+        android.graphics.Paint().apply {
+            color = android.graphics.Color.GRAY
+            textSize = 22f
+            textAlign = android.graphics.Paint.Align.CENTER
+            isAntiAlias = true
+        }
+    }
+
+    val layoutState by produceState(initialValue = TreeLayoutUiState(), members) {
+        value = withContext(Dispatchers.Default) {
+            val layoutResult = buildLayout(members, maxNodes = MAX_TREE_RENDER_NODES)
+            TreeLayoutUiState(
+                nodes = layoutResult.roots,
+                hitRects = buildHitRects(layoutResult.roots),
+                renderedNodeCount = layoutResult.renderedNodeCount,
+                isTruncated = layoutResult.isTruncated
+            )
+        }
+    }
 
     var scale by remember { mutableFloatStateOf(1f) }
     var offsetX by remember { mutableFloatStateOf(0f) }
@@ -158,11 +209,11 @@ private fun FamilyTreeCanvas(
                     translationY = offsetY
                 )
                 .transformable(state = state)
-                .pointerInput(hitRects) {
+                .pointerInput(layoutState.hitRects) {
                     detectTapGestures { tapOffset ->
                         val adjustedX = (tapOffset.x - offsetX) / scale
                         val adjustedY = (tapOffset.y - offsetY) / scale
-                        for ((rect, memberId) in hitRects) {
+                        for ((rect, memberId) in layoutState.hitRects) {
                             if (rect.contains(Offset(adjustedX, adjustedY))) {
                                 onMemberClick(memberId)
                                 break
@@ -174,60 +225,162 @@ private fun FamilyTreeCanvas(
             val startX = 40f
             val startY = 40f
 
-            for (node in layoutNodes) {
+            for (node in layoutState.nodes) {
                 drawTreeConnections(node, startX, startY, lineColor)
             }
-            for (node in layoutNodes) {
-                drawTreeNodes(node, startX, startY, surfaceColor, maleColor, femaleColor, onSurfaceColor)
+            for (node in layoutState.nodes) {
+                drawTreeNodes(
+                    node = node,
+                    startX = startX,
+                    startY = startY,
+                    maleColor = maleColor,
+                    femaleColor = femaleColor,
+                    titlePaint = titlePaint,
+                    subtitlePaint = subtitlePaint
+                )
             }
+        }
+
+        if (layoutState.isTruncated) {
+            Text(
+                text = "成员较多，当前仅渲染前 ${layoutState.renderedNodeCount} 人以避免卡顿",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+            )
         }
     }
 }
 
-private fun buildLayout(members: List<FamilyMember>): List<LayoutNode> {
-    val roots = members.filter { it.fatherId == null && it.motherId == null }
-    if (roots.isEmpty()) return emptyList()
-
-    var currentX = 0f
-    return roots.map { root ->
-        val node = layoutSubtree(root, members, 0, currentX)
-        currentX = getSubtreeMaxX(node) + HORIZONTAL_SPACING + NODE_WIDTH
-        node
+internal fun buildLayout(
+    members: List<FamilyMember>,
+    maxNodes: Int = MAX_TREE_RENDER_NODES
+): LayoutBuildResult {
+    if (members.isEmpty() || maxNodes <= 0) {
+        return LayoutBuildResult(
+            roots = emptyList(),
+            renderedNodeCount = 0,
+            isTruncated = members.isNotEmpty() && maxNodes <= 0
+        )
     }
+
+    val childrenByParent = buildChildrenByParent(members)
+    val roots = members.filter { it.fatherId == null && it.motherId == null }
+        .sortedWith(treeMemberComparator)
+    if (roots.isEmpty()) {
+        return LayoutBuildResult(roots = emptyList(), renderedNodeCount = 0, isTruncated = false)
+    }
+
+    val state = LayoutTraverseState(maxNodes)
+    val result = mutableListOf<LayoutNode>()
+    var currentX = 0f
+
+    for (root in roots) {
+        if (state.renderedNodeCount >= state.maxNodes) {
+            state.isTruncated = true
+            break
+        }
+        val layout = layoutSubtree(
+            member = root,
+            childrenByParent = childrenByParent,
+            depth = 0,
+            startX = currentX,
+            state = state,
+            pathVisited = mutableSetOf()
+        ) ?: continue
+        result += layout.node
+        currentX = layout.maxX + HORIZONTAL_SPACING + NODE_WIDTH
+    }
+
+    return LayoutBuildResult(
+        roots = result,
+        renderedNodeCount = state.renderedNodeCount,
+        isTruncated = state.isTruncated
+    )
+}
+
+private fun buildChildrenByParent(members: List<FamilyMember>): Map<String, List<FamilyMember>> {
+    val childrenByParent = mutableMapOf<String, MutableList<FamilyMember>>()
+    for (member in members) {
+        member.fatherId?.let { fatherId ->
+            childrenByParent.getOrPut(fatherId) { mutableListOf() }.add(member)
+        }
+        member.motherId
+            ?.takeIf { it != member.fatherId }
+            ?.let { motherId ->
+                childrenByParent.getOrPut(motherId) { mutableListOf() }.add(member)
+            }
+    }
+    childrenByParent.values.forEach { it.sortWith(treeMemberComparator) }
+    return childrenByParent
 }
 
 private fun layoutSubtree(
     member: FamilyMember,
-    all: List<FamilyMember>,
+    childrenByParent: Map<String, List<FamilyMember>>,
     depth: Int,
-    startX: Float
-): LayoutNode {
-    val children = all.filter { it.fatherId == member.id || it.motherId == member.id }
-    val y = depth * (NODE_HEIGHT + VERTICAL_SPACING)
-
-    if (children.isEmpty()) {
-        return LayoutNode(member, startX, y, emptyList())
+    startX: Float,
+    state: LayoutTraverseState,
+    pathVisited: MutableSet<String>
+): SubtreeLayout? {
+    if (state.renderedNodeCount >= state.maxNodes) {
+        state.isTruncated = true
+        return null
+    }
+    if (!pathVisited.add(member.id)) {
+        return null
     }
 
-    var childX = startX
-    val childNodes = children.map { child ->
-        val childNode = layoutSubtree(child, all, depth + 1, childX)
-        childX = getSubtreeMaxX(childNode) + HORIZONTAL_SPACING + NODE_WIDTH
-        childNode
-    }
+    return try {
+        state.renderedNodeCount += 1
+        val y = depth * (NODE_HEIGHT + VERTICAL_SPACING)
+        val children = childrenByParent[member.id].orEmpty()
 
-    val firstChildCenter = childNodes.first().x + NODE_WIDTH / 2
-    val lastChildCenter = childNodes.last().x + NODE_WIDTH / 2
-    val parentX = ((firstChildCenter + lastChildCenter) / 2) - NODE_WIDTH / 2
+        if (children.isEmpty()) {
+            SubtreeLayout(node = LayoutNode(member, startX, y, emptyList()), maxX = startX)
+        } else {
+            var childX = startX
+            val childLayouts = mutableListOf<SubtreeLayout>()
+            for (child in children) {
+                if (state.renderedNodeCount >= state.maxNodes) {
+                    state.isTruncated = true
+                    break
+                }
+                val childLayout = layoutSubtree(
+                    member = child,
+                    childrenByParent = childrenByParent,
+                    depth = depth + 1,
+                    startX = childX,
+                    state = state,
+                    pathVisited = pathVisited
+                )
+                if (childLayout != null) {
+                    childLayouts += childLayout
+                    childX = childLayout.maxX + HORIZONTAL_SPACING + NODE_WIDTH
+                }
+                if (state.isTruncated) {
+                    break
+                }
+            }
 
-    return LayoutNode(member, parentX, y, childNodes)
-}
-
-private fun getSubtreeMaxX(node: LayoutNode): Float {
-    return if (node.children.isEmpty()) {
-        node.x
-    } else {
-        maxOf(node.x, node.children.maxOf { getSubtreeMaxX(it) })
+            if (childLayouts.isEmpty()) {
+                SubtreeLayout(node = LayoutNode(member, startX, y, emptyList()), maxX = startX)
+            } else {
+                val firstChildCenter = childLayouts.first().node.x + NODE_WIDTH / 2
+                val lastChildCenter = childLayouts.last().node.x + NODE_WIDTH / 2
+                val parentX = ((firstChildCenter + lastChildCenter) / 2) - NODE_WIDTH / 2
+                val maxX = maxOf(parentX, childLayouts.maxOf { it.maxX })
+                SubtreeLayout(
+                    node = LayoutNode(member, parentX, y, childLayouts.map { it.node }),
+                    maxX = maxX
+                )
+            }
+        }
+    } finally {
+        pathVisited.remove(member.id)
     }
 }
 
@@ -262,17 +415,23 @@ private fun DrawScope.drawTreeConnections(
 
         val midY = (parentBottomY + childTopY) / 2
 
-        val path = Path().apply {
-            moveTo(parentCenterX, parentBottomY)
-            lineTo(parentCenterX, midY)
-            lineTo(childCenterX, midY)
-            lineTo(childCenterX, childTopY)
-        }
-
-        drawPath(
-            path = path,
+        drawLine(
             color = lineColor,
-            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2f)
+            start = Offset(parentCenterX, parentBottomY),
+            end = Offset(parentCenterX, midY),
+            strokeWidth = 2f
+        )
+        drawLine(
+            color = lineColor,
+            start = Offset(parentCenterX, midY),
+            end = Offset(childCenterX, midY),
+            strokeWidth = 2f
+        )
+        drawLine(
+            color = lineColor,
+            start = Offset(childCenterX, midY),
+            end = Offset(childCenterX, childTopY),
+            strokeWidth = 2f
         )
 
         drawTreeConnections(child, startX, startY, lineColor)
@@ -283,10 +442,10 @@ private fun DrawScope.drawTreeNodes(
     node: LayoutNode,
     startX: Float,
     startY: Float,
-    surfaceColor: Color,
     maleColor: Color,
     femaleColor: Color,
-    textColor: Color
+    titlePaint: android.graphics.Paint,
+    subtitlePaint: android.graphics.Paint
 ) {
     val x = startX + node.x
     val y = startY + node.y
@@ -307,29 +466,12 @@ private fun DrawScope.drawTreeNodes(
         style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2f)
     )
 
-    val textPaint = android.graphics.Paint().apply {
-        color = android.graphics.Color.parseColor(
-            if (textColor == Color.Black) "#1C1B1F" else "#E6E1E5"
-        )
-        textSize = 32f
-        textAlign = android.graphics.Paint.Align.CENTER
-        isAntiAlias = true
-        typeface = android.graphics.Typeface.DEFAULT_BOLD
-    }
-
     drawContext.canvas.nativeCanvas.drawText(
         node.member.fullName,
         x + NODE_WIDTH / 2,
         y + 36f,
-        textPaint
+        titlePaint
     )
-
-    val subPaint = android.graphics.Paint().apply {
-        color = android.graphics.Color.GRAY
-        textSize = 22f
-        textAlign = android.graphics.Paint.Align.CENTER
-        isAntiAlias = true
-    }
 
     val subtitle = buildString {
         append(if (node.member.gender == "male") "男" else "女")
@@ -340,10 +482,10 @@ private fun DrawScope.drawTreeNodes(
         subtitle,
         x + NODE_WIDTH / 2,
         y + 62f,
-        subPaint
+        subtitlePaint
     )
 
     for (child in node.children) {
-        drawTreeNodes(child, startX, startY, surfaceColor, maleColor, femaleColor, textColor)
+        drawTreeNodes(child, startX, startY, maleColor, femaleColor, titlePaint, subtitlePaint)
     }
 }
