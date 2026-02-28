@@ -6,6 +6,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import com.familytree.app.ui.screens.SettingsScreen
 import com.familytree.app.ui.theme.FamilyTreeTheme
+import com.familytree.app.ui.viewmodel.GedcomOperationState
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -130,5 +131,18 @@ class SettingsScreenTest {
         }
 
         composeTestRule.onNodeWithTag("settings_screen").assertIsDisplayed()
+    }
+
+    @Test
+    fun settingsScreen_displaysGedcomLoadingDialogWhenImporting() {
+        composeTestRule.setContent {
+            FamilyTreeTheme(dynamicColor = false) {
+                SettingsScreen(gedcomStateOverride = GedcomOperationState(isLoading = true))
+            }
+        }
+
+        composeTestRule.onNodeWithText("处理中...").assertIsDisplayed()
+        composeTestRule.onNodeWithText("正在处理 GEDCOM 文件...").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("gedcom_loading_indicator").assertIsDisplayed()
     }
 }

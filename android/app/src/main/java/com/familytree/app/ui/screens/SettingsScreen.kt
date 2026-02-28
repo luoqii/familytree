@@ -1,6 +1,7 @@
 package com.familytree.app.ui.screens
 
 import android.content.Intent
+import android.widget.ProgressBar
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -25,7 +26,6 @@ import androidx.compose.material.icons.filled.Language
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -45,16 +45,22 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import com.familytree.app.ui.viewmodel.FamilyViewModel
+import com.familytree.app.ui.viewmodel.GedcomOperationState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(viewModel: FamilyViewModel? = null) {
+fun SettingsScreen(
+    viewModel: FamilyViewModel? = null,
+    gedcomStateOverride: GedcomOperationState? = null
+) {
     val context = LocalContext.current
-    val gedcomState by viewModel?.gedcomState?.collectAsState()
+    val viewModelGedcomState by viewModel?.gedcomState?.collectAsState()
         ?: androidx.compose.runtime.remember {
-            androidx.compose.runtime.mutableStateOf(com.familytree.app.ui.viewmodel.GedcomOperationState())
+            androidx.compose.runtime.mutableStateOf(GedcomOperationState())
         }
+    val gedcomState = gedcomStateOverride ?: viewModelGedcomState
 
     val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
@@ -107,7 +113,16 @@ fun SettingsScreen(viewModel: FamilyViewModel? = null) {
             title = { Text("处理中...") },
             text = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                    AndroidView(
+                        factory = {
+                            ProgressBar(it).apply {
+                                isIndeterminate = true
+                            }
+                        },
+                        modifier = Modifier
+                            .size(24.dp)
+                            .testTag("gedcom_loading_indicator")
+                    )
                     Spacer(modifier = Modifier.width(16.dp))
                     Text("正在处理 GEDCOM 文件...")
                 }
