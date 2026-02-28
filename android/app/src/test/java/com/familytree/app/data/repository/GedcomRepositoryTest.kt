@@ -15,12 +15,12 @@ import org.junit.Test
 
 class GedcomRepositoryTest {
 
-    private lateinit var fakeDao: FakeFamilyMemberDao
+    private lateinit var fakeDao: GedcomTestFakeDao
     private lateinit var repository: FamilyRepository
 
     @Before
     fun setup() {
-        fakeDao = FakeFamilyMemberDao()
+        fakeDao = GedcomTestFakeDao()
         repository = FamilyRepository(fakeDao)
     }
 
@@ -174,7 +174,7 @@ class GedcomRepositoryTest {
     }
 }
 
-private class FakeFamilyMemberDao : FamilyMemberDao {
+private class GedcomTestFakeDao : FamilyMemberDao {
     private val members = mutableListOf<FamilyMember>()
     private val flow = MutableStateFlow<List<FamilyMember>>(emptyList())
 

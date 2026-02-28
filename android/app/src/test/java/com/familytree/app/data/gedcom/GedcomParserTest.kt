@@ -139,8 +139,6 @@ class GedcomParserTest {
         val result = parser.parse(input)
 
         assertEquals(3, result.members.size)
-        val byLastName = result.members.groupBy { it.lastName }
-
         val zhao = result.members.find { it.lastName == "赵" }
         assertNotNull(zhao)
         assertEquals("志强", zhao!!.firstName)

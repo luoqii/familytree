@@ -20,7 +20,7 @@ class GedcomParser {
         val errors: List<String> = emptyList()
     )
 
-    private data class GedcomLine(
+    internal data class GedcomLine(
         val level: Int,
         val xref: String?,
         val tag: String,
@@ -107,6 +107,7 @@ class GedcomParser {
         }
     }
 
+    @Suppress("UNUSED_PARAMETER")
     private fun extractRecords(
         lines: List<GedcomLine>,
         individuals: MutableMap<String, RawIndividual>,
