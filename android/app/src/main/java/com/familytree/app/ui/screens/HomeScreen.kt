@@ -1,5 +1,6 @@
 package com.familytree.app.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -26,20 +27,30 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.familytree.app.ui.viewmodel.FamilyViewModel
 
-/**
- * 首页屏幕
- * 展示家族概览和快捷操作
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen() {
+fun HomeScreen(
+    viewModel: FamilyViewModel,
+    onNavigateToAddMember: () -> Unit,
+    onNavigateToTree: () -> Unit
+) {
+    val memberCount by viewModel.memberCount.collectAsState()
+    val allMembers by viewModel.allMembers.collectAsState()
+    val generationCount = if (allMembers.isEmpty()) 0 else {
+        val roots = allMembers.filter { it.fatherId == null && it.motherId == null }
+        if (roots.isEmpty()) 1 else computeMaxDepth(roots, allMembers)
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -63,7 +74,6 @@ fun HomeScreen() {
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
-            // 欢迎卡片
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
@@ -101,7 +111,6 @@ fun HomeScreen() {
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // 统计信息
             Text(
                 text = "家族概览",
                 style = MaterialTheme.typography.titleLarge,
@@ -117,19 +126,18 @@ fun HomeScreen() {
                     modifier = Modifier.weight(1f),
                     icon = Icons.Filled.Group,
                     title = "成员总数",
-                    value = "0"
+                    value = "$memberCount"
                 )
                 StatCard(
                     modifier = Modifier.weight(1f),
                     icon = Icons.Filled.Timeline,
                     title = "世代数",
-                    value = "0"
+                    value = "$generationCount"
                 )
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // 快捷操作
             Text(
                 text = "快捷操作",
                 style = MaterialTheme.typography.titleLarge,
@@ -140,7 +148,8 @@ fun HomeScreen() {
             QuickActionCard(
                 icon = Icons.Filled.PersonAdd,
                 title = "添加家族成员",
-                description = "录入新的家族成员信息"
+                description = "录入新的家族成员信息",
+                onClick = onNavigateToAddMember
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -148,10 +157,25 @@ fun HomeScreen() {
             QuickActionCard(
                 icon = Icons.Filled.AccountTree,
                 title = "查看族谱",
-                description = "以树形结构浏览家族关系"
+                description = "以树形结构浏览家族关系",
+                onClick = onNavigateToTree
             )
         }
     }
+}
+
+private fun computeMaxDepth(
+    roots: List<com.familytree.app.data.model.FamilyMember>,
+    all: List<com.familytree.app.data.model.FamilyMember>
+): Int {
+    fun depth(memberId: String, visited: Set<String>): Int {
+        if (memberId in visited) return 0
+        val newVisited = visited + memberId
+        val children = all.filter { it.fatherId == memberId || it.motherId == memberId }
+        return if (children.isEmpty()) 1
+        else 1 + (children.maxOfOrNull { depth(it.id, newVisited) } ?: 0)
+    }
+    return roots.maxOfOrNull { depth(it.id, emptySet()) } ?: 0
 }
 
 @Composable
@@ -199,10 +223,13 @@ private fun StatCard(
 private fun QuickActionCard(
     icon: ImageVector,
     title: String,
-    description: String
+    description: String,
+    onClick: () -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),

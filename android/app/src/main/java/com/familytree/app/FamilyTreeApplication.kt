@@ -1,15 +1,15 @@
 package com.familytree.app
 
 import android.app.Application
+import com.familytree.app.data.FamilyTreeDatabase
 
-/**
- * FamilyTree 应用程序主入口类
- * 用于初始化全局状态和依赖
- */
 class FamilyTreeApplication : Application() {
+
+    lateinit var database: FamilyTreeDatabase
+        private set
 
     override fun onCreate() {
         super.onCreate()
-        // 初始化数据库、依赖注入等
+        database = FamilyTreeDatabase.getDatabase(this)
     }
 }

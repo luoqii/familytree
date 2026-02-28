@@ -5,14 +5,10 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.familytree.app.data.model.FamilyMember
-import com.familytree.app.data.model.Relationship
 
-/**
- * FamilyTree Room 数据库
- */
 @Database(
-    entities = [FamilyMember::class, Relationship::class],
-    version = 1,
+    entities = [FamilyMember::class],
+    version = 2,
     exportSchema = false
 )
 abstract class FamilyTreeDatabase : RoomDatabase() {
