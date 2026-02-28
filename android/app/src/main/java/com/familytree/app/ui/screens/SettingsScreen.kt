@@ -26,7 +26,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -159,7 +159,7 @@ fun SettingsScreen(viewModel: FamilyViewModel? = null) {
                     title = "深色模式",
                     subtitle = "跟随系统"
                 )
-                Divider(modifier = Modifier.padding(horizontal = 16.dp))
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                 SettingsItem(
                     icon = Icons.Filled.Language,
                     title = "语言",
@@ -193,7 +193,7 @@ fun SettingsScreen(viewModel: FamilyViewModel? = null) {
                         importLauncher.launch(arrayOf("*/*"))
                     }
                 )
-                Divider(modifier = Modifier.padding(horizontal = 16.dp))
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                 SettingsItem(
                     icon = Icons.Filled.FileDownload,
                     title = "导出 GEDCOM",
