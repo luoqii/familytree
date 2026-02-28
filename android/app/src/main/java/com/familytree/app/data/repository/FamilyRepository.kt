@@ -1,8 +1,11 @@
 package com.familytree.app.data.repository
 
 import com.familytree.app.data.FamilyMemberDao
+import com.familytree.app.data.gedcom.GedcomExporter
+import com.familytree.app.data.gedcom.GedcomParser
 import com.familytree.app.data.model.FamilyMember
 import kotlinx.coroutines.flow.Flow
+import java.io.InputStream
 
 class FamilyRepository(private val dao: FamilyMemberDao) {
 
@@ -31,4 +34,28 @@ class FamilyRepository(private val dao: FamilyMemberDao) {
     suspend fun deleteMember(member: FamilyMember) = dao.deleteMember(member)
 
     suspend fun deleteMemberById(id: String) = dao.deleteMemberById(id)
+
+    suspend fun importGedcom(inputStream: InputStream): GedcomParser.ParseResult {
+        val parser = GedcomParser()
+        val result = parser.parse(inputStream)
+        for (member in result.members) {
+            dao.insertMember(member)
+        }
+        return result
+    }
+
+    suspend fun importGedcom(gedcomText: String): GedcomParser.ParseResult {
+        val parser = GedcomParser()
+        val result = parser.parse(gedcomText)
+        for (member in result.members) {
+            dao.insertMember(member)
+        }
+        return result
+    }
+
+    suspend fun exportGedcom(): String {
+        val members = dao.getAllMembersList()
+        val exporter = GedcomExporter()
+        return exporter.export(members)
+    }
 }

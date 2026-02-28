@@ -144,7 +144,7 @@ fun FamilyTreeApp() {
                 )
             }
             composable(BottomNavItem.Settings.route) {
-                SettingsScreen()
+                SettingsScreen(viewModel = familyViewModel)
             }
             composable(
                 route = Routes.MEMBER_DETAIL,
