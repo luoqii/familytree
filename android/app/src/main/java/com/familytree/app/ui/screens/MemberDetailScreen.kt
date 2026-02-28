@@ -20,13 +20,13 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Female
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Male
-import androidx.compose.material.icons.filled.Note
+import androidx.compose.material.icons.automirrored.filled.Note
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -128,7 +128,7 @@ fun MemberDetailScreen(
     ) { innerPadding ->
         if (currentMember != null) {
             MemberDetailContent(
-                member = currentMember!!,
+                member = currentMember,
                 allMembers = allMembers,
                 onMemberClick = onMemberClick,
                 modifier = Modifier
@@ -211,7 +211,7 @@ private fun MemberDetailContent(
                     value = member.birthDate ?: "未知"
                 )
                 if (member.birthPlace != null) {
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    Divider(modifier = Modifier.padding(vertical = 8.dp))
                     DetailRow(
                         icon = Icons.Filled.LocationOn,
                         label = "出生地点",
@@ -219,7 +219,7 @@ private fun MemberDetailContent(
                     )
                 }
                 if (member.deathDate != null) {
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    Divider(modifier = Modifier.padding(vertical = 8.dp))
                     DetailRow(
                         icon = Icons.Filled.Cake,
                         label = "死亡日期",
@@ -227,7 +227,7 @@ private fun MemberDetailContent(
                     )
                 }
                 if (member.deathPlace != null) {
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    Divider(modifier = Modifier.padding(vertical = 8.dp))
                     DetailRow(
                         icon = Icons.Filled.LocationOn,
                         label = "死亡地点",
@@ -257,7 +257,7 @@ private fun MemberDetailContent(
                     member = father,
                     onClick = { father?.let { onMemberClick(it.id) } }
                 )
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                Divider(modifier = Modifier.padding(vertical = 8.dp))
                 RelationRow(
                     label = "母亲",
                     member = mother,
@@ -265,7 +265,7 @@ private fun MemberDetailContent(
                 )
 
                 if (children.isNotEmpty()) {
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    Divider(modifier = Modifier.padding(vertical = 8.dp))
                     Text(
                         "子女",
                         style = MaterialTheme.typography.bodySmall,
@@ -315,7 +315,7 @@ private fun MemberDetailContent(
                     verticalAlignment = Alignment.Top
                 ) {
                     Icon(
-                        imageVector = Icons.Filled.Note,
+                        imageVector = Icons.AutoMirrored.Filled.Note,
                         contentDescription = null,
                         modifier = Modifier.size(20.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant

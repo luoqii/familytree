@@ -124,7 +124,6 @@ private fun FamilyTreeCanvas(
     members: List<FamilyMember>,
     onMemberClick: (String) -> Unit
 ) {
-    val primaryColor = MaterialTheme.colorScheme.primary
     val surfaceColor = MaterialTheme.colorScheme.surface
     val onSurfaceColor = MaterialTheme.colorScheme.onSurface
     val maleColor = Color(0xFF42A5F5)
