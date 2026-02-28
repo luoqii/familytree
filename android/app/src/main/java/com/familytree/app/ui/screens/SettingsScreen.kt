@@ -1,5 +1,6 @@
 package com.familytree.app.ui.screens
 
+import android.content.Intent
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -58,13 +59,31 @@ fun SettingsScreen(viewModel: FamilyViewModel? = null) {
     val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
-        uri?.let { viewModel?.importGedcom(it) }
+        uri?.let {
+            try {
+                context.contentResolver.takePersistableUriPermission(
+                    it, Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            } catch (_: SecurityException) {
+                // Persistable permission not available; temporary access is still valid
+            }
+            viewModel?.importGedcom(it)
+        }
     }
 
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/x-gedcom")
     ) { uri ->
-        uri?.let { viewModel?.exportGedcom(it) }
+        uri?.let {
+            try {
+                context.contentResolver.takePersistableUriPermission(
+                    it, Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                )
+            } catch (_: SecurityException) {
+                // Persistable permission not available; temporary access is still valid
+            }
+            viewModel?.exportGedcom(it)
+        }
     }
 
     LaunchedEffect(gedcomState.successMessage) {
