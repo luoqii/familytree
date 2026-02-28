@@ -8,6 +8,7 @@ import com.familytree.app.data.FamilyTreeDatabase
 import com.familytree.app.data.model.FamilyMember
 import com.familytree.app.data.model.PersonIdGenerator
 import com.familytree.app.data.repository.FamilyRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 data class GedcomOperationState(
     val isLoading: Boolean = false,
@@ -143,9 +145,12 @@ class FamilyViewModel(application: Application) : AndroidViewModel(application) 
             _gedcomState.value = GedcomOperationState(isLoading = true)
             try {
                 val context = getApplication<Application>()
-                val inputStream = context.contentResolver.openInputStream(uri)
-                if (inputStream != null) {
-                    val result = repository.importGedcom(inputStream)
+                val result = withContext(Dispatchers.IO) {
+                    context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                        repository.importGedcom(inputStream)
+                    }
+                }
+                if (result != null) {
                     val msg = "成功导入 ${result.members.size} 位家族成员"
                     val errorInfo = if (result.errors.isNotEmpty()) {
                         "\n警告: ${result.errors.size} 个解析问题"
@@ -154,6 +159,10 @@ class FamilyViewModel(application: Application) : AndroidViewModel(application) 
                 } else {
                     _gedcomState.value = GedcomOperationState(errorMessage = "无法读取文件")
                 }
+            } catch (e: SecurityException) {
+                _gedcomState.value = GedcomOperationState(
+                    errorMessage = "没有文件访问权限，请重新选择文件"
+                )
             } catch (e: Exception) {
                 _gedcomState.value = GedcomOperationState(errorMessage = "导入失败: ${e.message}")
             }
@@ -164,12 +173,28 @@ class FamilyViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             _gedcomState.value = GedcomOperationState(isLoading = true)
             try {
-                val gedcomContent = repository.exportGedcom()
                 val context = getApplication<Application>()
-                context.contentResolver.openOutputStream(uri)?.use { outputStream ->
-                    outputStream.write(gedcomContent.toByteArray(Charsets.UTF_8))
+                val written = withContext(Dispatchers.IO) {
+                    val gedcomContent = repository.exportGedcom()
+                    val outputStream = context.contentResolver.openOutputStream(uri)
+                    if (outputStream != null) {
+                        outputStream.use { it.write(gedcomContent.toByteArray(Charsets.UTF_8)) }
+                        true
+                    } else {
+                        false
+                    }
                 }
-                _gedcomState.value = GedcomOperationState(successMessage = "家族数据已成功导出为 GEDCOM 5.5 格式")
+                if (written) {
+                    _gedcomState.value = GedcomOperationState(
+                        successMessage = "家族数据已成功导出为 GEDCOM 5.5 格式"
+                    )
+                } else {
+                    _gedcomState.value = GedcomOperationState(errorMessage = "无法写入文件")
+                }
+            } catch (e: SecurityException) {
+                _gedcomState.value = GedcomOperationState(
+                    errorMessage = "没有文件写入权限，请重新选择位置"
+                )
             } catch (e: Exception) {
                 _gedcomState.value = GedcomOperationState(errorMessage = "导出失败: ${e.message}")
             }
