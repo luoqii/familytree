@@ -26,7 +26,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -211,7 +211,7 @@ private fun MemberDetailContent(
                     value = member.birthDate ?: "未知"
                 )
                 if (member.birthPlace != null) {
-                    Divider(modifier = Modifier.padding(vertical = 8.dp))
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                     DetailRow(
                         icon = Icons.Filled.LocationOn,
                         label = "出生地点",
@@ -219,7 +219,7 @@ private fun MemberDetailContent(
                     )
                 }
                 if (member.deathDate != null) {
-                    Divider(modifier = Modifier.padding(vertical = 8.dp))
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                     DetailRow(
                         icon = Icons.Filled.Cake,
                         label = "死亡日期",
@@ -227,7 +227,7 @@ private fun MemberDetailContent(
                     )
                 }
                 if (member.deathPlace != null) {
-                    Divider(modifier = Modifier.padding(vertical = 8.dp))
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                     DetailRow(
                         icon = Icons.Filled.LocationOn,
                         label = "死亡地点",
@@ -257,7 +257,7 @@ private fun MemberDetailContent(
                     member = father,
                     onClick = { father?.let { onMemberClick(it.id) } }
                 )
-                Divider(modifier = Modifier.padding(vertical = 8.dp))
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 RelationRow(
                     label = "母亲",
                     member = mother,
@@ -265,7 +265,7 @@ private fun MemberDetailContent(
                 )
 
                 if (children.isNotEmpty()) {
-                    Divider(modifier = Modifier.padding(vertical = 8.dp))
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                     Text(
                         "子女",
                         style = MaterialTheme.typography.bodySmall,
