@@ -65,7 +65,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: lint-report-${{ env.TIMESTAMP }}
+          name: familytree-lint-report-${{ env.TIMESTAMP }}
           path: android/app/build/reports/lint-results-debug.html
           retention-days: 14
           if-no-files-found: warn
@@ -105,7 +105,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: unit-test-results-${{ env.TIMESTAMP }}
+          name: familytree-unit-test-results-${{ env.TIMESTAMP }}
           path: android/app/build/test-results/testDebugUnitTest/
           retention-days: 14
           if-no-files-found: warn
@@ -114,7 +114,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: unit-test-report-${{ env.TIMESTAMP }}
+          name: familytree-unit-test-report-${{ env.TIMESTAMP }}
           path: android/app/build/reports/tests/testDebugUnitTest/
           retention-days: 14
           if-no-files-found: warn
@@ -261,14 +261,14 @@ jobs:
               fi
             done
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "> 💡 下载 **screenshot-report** 构件并打开 HTML 文件即可预览所有截图" >> $GITHUB_STEP_SUMMARY
+            echo "> 💡 下载 **familytree-screenshot-report** 构件并打开 HTML 文件即可预览所有截图" >> $GITHUB_STEP_SUMMARY
           fi
 
       - name: 上传截图 (原始 PNG)
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: screenshots-${{ env.TIMESTAMP }}
+          name: familytree-screenshots-${{ env.TIMESTAMP }}
           path: android/app/screenshots/
           retention-days: 14
           if-no-files-found: warn
@@ -277,7 +277,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: screenshot-report-${{ env.TIMESTAMP }}
+          name: familytree-screenshot-report-${{ env.TIMESTAMP }}
           path: android/app/build/screenshot-report.html
           retention-days: 14
           if-no-files-found: warn
@@ -327,7 +327,7 @@ jobs:
       - name: 上传 Debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: debug-apk-${{ env.TIMESTAMP }}
+          name: familytree-debug-apk-${{ env.TIMESTAMP }}
           path: android/app/build/outputs/apk/debug/FamilyTree-*.apk
           retention-days: 30
 
@@ -375,7 +375,7 @@ jobs:
       - name: 上传 Release APK
         uses: actions/upload-artifact@v4
         with:
-          name: release-apk-${{ env.TIMESTAMP }}
+          name: familytree-release-apk-${{ env.TIMESTAMP }}
           path: android/app/build/outputs/apk/release/FamilyTree-*.apk
           retention-days: 30
 
@@ -415,7 +415,7 @@ jobs:
           SKIPPED=0
 
           # 使用 find 查找测试结果 XML（适配带时间戳的目录名）
-          XML_FILES=$(find artifacts -path "*/unit-test-results-*/*.xml" 2>/dev/null)
+          XML_FILES=$(find artifacts -path "*/familytree-unit-test-results-*/*.xml" 2>/dev/null)
 
           if [ -n "$XML_FILES" ]; then
             for xml_file in $XML_FILES; do
@@ -515,18 +515,18 @@ jobs:
             echo ""
             echo "### 📥 构件下载"
             echo ""
-            echo "> 所有构件名称包含生成时间戳（如 \`debug-apk-20260226-0305\`），多次下载不会覆盖。"
+            echo "> 所有构件名称包含生成时间戳（如 \`familytree-debug-apk-20260226-0305\`），多次下载不会覆盖。"
             echo "> 前往 [Actions Artifacts](${ARTIFACTS_URL}) 页面下载（需登录 GitHub）。"
             echo ""
             echo "| 构件 | 说明 | 保留天数 |"
             echo "|------|------|----------|"
-            echo "| 📱 **debug-apk-\`时间戳\`** | Debug 版本 APK（可直接安装测试） | 30 天 |"
-            echo "| 📦 **release-apk-\`时间戳\`** | Release 版本 APK（未签名） | 30 天 |"
-            echo "| 📸 **screenshot-report-\`时间戳\`** | 截图测试 HTML 报告（打开即可预览所有截图） | 14 天 |"
-            echo "| 📸 **screenshots-\`时间戳\`** | 截图原始 PNG 文件 | 14 天 |"
-            echo "| 📊 **unit-test-report-\`时间戳\`** | 单元测试 HTML 报告 | 14 天 |"
-            echo "| 📊 **unit-test-results-\`时间戳\`** | 单元测试 JUnit XML 原始结果 | 14 天 |"
-            echo "| 🔍 **lint-report-\`时间戳\`** | Lint 检查 HTML 报告 | 14 天 |"
+            echo "| 📱 **familytree-debug-apk-\`时间戳\`** | Debug 版本 APK（可直接安装测试） | 30 天 |"
+            echo "| 📦 **familytree-release-apk-\`时间戳\`** | Release 版本 APK（未签名） | 30 天 |"
+            echo "| 📸 **familytree-screenshot-report-\`时间戳\`** | 截图测试 HTML 报告（打开即可预览所有截图） | 14 天 |"
+            echo "| 📸 **familytree-screenshots-\`时间戳\`** | 截图原始 PNG 文件 | 14 天 |"
+            echo "| 📊 **familytree-unit-test-report-\`时间戳\`** | 单元测试 HTML 报告 | 14 天 |"
+            echo "| 📊 **familytree-unit-test-results-\`时间戳\`** | 单元测试 JUnit XML 原始结果 | 14 天 |"
+            echo "| 🔍 **familytree-lint-report-\`时间戳\`** | Lint 检查 HTML 报告 | 14 天 |"
             echo ""
             echo "---"
             echo ""
@@ -534,7 +534,7 @@ jobs:
             echo "<summary>💡 如何使用 Debug APK</summary>"
             echo ""
             echo "1. 进入 [Artifacts 下载页面](${ARTIFACTS_URL})"
-            echo "2. 下载 **debug-apk-\`时间戳\`** 压缩包"
+            echo "2. 下载 **familytree-debug-apk-\`时间戳\`** 压缩包"
             echo "3. 解压获得 \`.apk\` 文件"
             echo "4. 传输到 Android 设备并安装（需开启\"允许安装未知来源\"）"
             echo "5. 或使用 \`adb install <apk文件路径>\` 命令安装"
@@ -579,7 +579,7 @@ jobs:
         if: always()
         uses: actions/download-artifact@v4
         with:
-          pattern: unit-test-results-*
+          pattern: familytree-unit-test-results-*
           path: test-results
           merge-multiple: true
         continue-on-error: true
@@ -662,10 +662,10 @@ jobs:
             echo "> 所有构件名称包含时间戳，多次下载不会覆盖。"
             echo ""
             echo "前往 [Artifacts](${ARTIFACTS_URL}) 下载："
-            echo "- 📱 **debug-apk** — Debug APK"
-            echo "- 📦 **release-apk** — Release APK (未签名)"
-            echo "- 📸 **screenshot-report** — 截图测试 HTML 报告"
-            echo "- 📸 **screenshots** — 截图原始 PNG 文件"
-            echo "- 📊 **unit-test-report** — 测试报告"
-            echo "- 🔍 **lint-report** — Lint 报告"
+            echo "- 📱 **familytree-debug-apk** — Debug APK"
+            echo "- 📦 **familytree-release-apk** — Release APK (未签名)"
+            echo "- 📸 **familytree-screenshot-report** — 截图测试 HTML 报告"
+            echo "- 📸 **familytree-screenshots** — 截图原始 PNG 文件"
+            echo "- 📊 **familytree-unit-test-report** — 测试报告"
+            echo "- 🔍 **familytree-lint-report** — Lint 报告"
           } >> $GITHUB_STEP_SUMMARY
