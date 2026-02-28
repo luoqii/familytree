@@ -1,4 +1,4 @@
-# 总览
+# familytree android app
 
 ## 架构风格
 使用[android官方推荐架构风格](https://developer.android.com/topic/architecture),力求清晰，高效。  
