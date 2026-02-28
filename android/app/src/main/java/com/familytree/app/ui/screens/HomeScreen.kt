@@ -29,12 +29,14 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.familytree.app.data.model.FamilyMember
 import com.familytree.app.ui.viewmodel.FamilyViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -46,10 +48,7 @@ fun HomeScreen(
 ) {
     val memberCount by viewModel.memberCount.collectAsState()
     val allMembers by viewModel.allMembers.collectAsState()
-    val generationCount = if (allMembers.isEmpty()) 0 else {
-        val roots = allMembers.filter { it.fatherId == null && it.motherId == null }
-        if (roots.isEmpty()) 1 else computeMaxDepth(roots, allMembers)
-    }
+    val generationCount = remember(allMembers) { calculateGenerationCount(allMembers) }
 
     Column(
         modifier = Modifier
@@ -164,18 +163,41 @@ fun HomeScreen(
     }
 }
 
-private fun computeMaxDepth(
-    roots: List<com.familytree.app.data.model.FamilyMember>,
-    all: List<com.familytree.app.data.model.FamilyMember>
-): Int {
-    fun depth(memberId: String, visited: Set<String>): Int {
-        if (memberId in visited) return 0
-        val newVisited = visited + memberId
-        val children = all.filter { it.fatherId == memberId || it.motherId == memberId }
-        return if (children.isEmpty()) 1
-        else 1 + (children.maxOfOrNull { depth(it.id, newVisited) } ?: 0)
+internal fun calculateGenerationCount(allMembers: List<FamilyMember>): Int {
+    if (allMembers.isEmpty()) return 0
+
+    val roots = allMembers.filter { it.fatherId == null && it.motherId == null }
+    if (roots.isEmpty()) return 1
+
+    val childrenByParent = mutableMapOf<String, MutableList<String>>()
+    for (member in allMembers) {
+        member.fatherId?.let { fatherId ->
+            childrenByParent.getOrPut(fatherId) { mutableListOf() }.add(member.id)
+        }
+        member.motherId
+            ?.takeIf { it != member.fatherId }
+            ?.let { motherId ->
+                childrenByParent.getOrPut(motherId) { mutableListOf() }.add(member.id)
+            }
     }
-    return roots.maxOfOrNull { depth(it.id, emptySet()) } ?: 0
+
+    val depthMemo = mutableMapOf<String, Int>()
+
+    fun depth(memberId: String, visiting: MutableSet<String>): Int {
+        depthMemo[memberId]?.let { return it }
+        if (!visiting.add(memberId)) return 0
+
+        val maxChildDepth = childrenByParent[memberId]
+            ?.maxOfOrNull { childId -> depth(childId, visiting) }
+            ?: 0
+        visiting.remove(memberId)
+
+        val currentDepth = 1 + maxChildDepth
+        depthMemo[memberId] = currentDepth
+        return currentDepth
+    }
+
+    return roots.maxOfOrNull { root -> depth(root.id, mutableSetOf()) } ?: 0
 }
 
 @Composable
