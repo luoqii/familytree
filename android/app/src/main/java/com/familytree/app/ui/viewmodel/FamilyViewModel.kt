@@ -1,6 +1,7 @@
 package com.familytree.app.ui.viewmodel
 
 import android.app.Application
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.familytree.app.data.FamilyTreeDatabase
@@ -14,6 +15,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+
+data class GedcomOperationState(
+    val isLoading: Boolean = false,
+    val successMessage: String? = null,
+    val errorMessage: String? = null
+)
 
 class FamilyViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -30,6 +37,9 @@ class FamilyViewModel(application: Application) : AndroidViewModel(application) 
 
     private val _treeData = MutableStateFlow<List<TreeNode>>(emptyList())
     val treeData: StateFlow<List<TreeNode>> = _treeData.asStateFlow()
+
+    private val _gedcomState = MutableStateFlow(GedcomOperationState())
+    val gedcomState: StateFlow<GedcomOperationState> = _gedcomState.asStateFlow()
 
     init {
         val dao = FamilyTreeDatabase.getDatabase(application).familyMemberDao()
@@ -126,6 +136,48 @@ class FamilyViewModel(application: Application) : AndroidViewModel(application) 
                 }
             }
         }
+    }
+
+    fun importGedcom(uri: Uri) {
+        viewModelScope.launch {
+            _gedcomState.value = GedcomOperationState(isLoading = true)
+            try {
+                val context = getApplication<Application>()
+                val inputStream = context.contentResolver.openInputStream(uri)
+                if (inputStream != null) {
+                    val result = repository.importGedcom(inputStream)
+                    val msg = "成功导入 ${result.members.size} 位家族成员"
+                    val errorInfo = if (result.errors.isNotEmpty()) {
+                        "\n警告: ${result.errors.size} 个解析问题"
+                    } else ""
+                    _gedcomState.value = GedcomOperationState(successMessage = msg + errorInfo)
+                } else {
+                    _gedcomState.value = GedcomOperationState(errorMessage = "无法读取文件")
+                }
+            } catch (e: Exception) {
+                _gedcomState.value = GedcomOperationState(errorMessage = "导入失败: ${e.message}")
+            }
+        }
+    }
+
+    fun exportGedcom(uri: Uri) {
+        viewModelScope.launch {
+            _gedcomState.value = GedcomOperationState(isLoading = true)
+            try {
+                val gedcomContent = repository.exportGedcom()
+                val context = getApplication<Application>()
+                context.contentResolver.openOutputStream(uri)?.use { outputStream ->
+                    outputStream.write(gedcomContent.toByteArray(Charsets.UTF_8))
+                }
+                _gedcomState.value = GedcomOperationState(successMessage = "家族数据已成功导出为 GEDCOM 5.5 格式")
+            } catch (e: Exception) {
+                _gedcomState.value = GedcomOperationState(errorMessage = "导出失败: ${e.message}")
+            }
+        }
+    }
+
+    fun clearGedcomState() {
+        _gedcomState.value = GedcomOperationState()
     }
 
     fun loadTreeData() {

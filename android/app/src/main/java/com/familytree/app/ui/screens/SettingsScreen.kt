@@ -1,5 +1,8 @@
 package com.familytree.app.ui.screens
 
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,38 +16,91 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.familytree.app.ui.viewmodel.FamilyViewModel
 
-/**
- * 设置屏幕
- * 提供应用设置和关于信息
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen() {
+fun SettingsScreen(viewModel: FamilyViewModel? = null) {
+    val context = LocalContext.current
+    val gedcomState by viewModel?.gedcomState?.collectAsState()
+        ?: androidx.compose.runtime.remember {
+            androidx.compose.runtime.mutableStateOf(com.familytree.app.ui.viewmodel.GedcomOperationState())
+        }
+
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri?.let { viewModel?.importGedcom(it) }
+    }
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/x-gedcom")
+    ) { uri ->
+        uri?.let { viewModel?.exportGedcom(it) }
+    }
+
+    LaunchedEffect(gedcomState.successMessage) {
+        gedcomState.successMessage?.let {
+            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+            viewModel?.clearGedcomState()
+        }
+    }
+
+    LaunchedEffect(gedcomState.errorMessage) {
+        gedcomState.errorMessage?.let {
+            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+            viewModel?.clearGedcomState()
+        }
+    }
+
+    if (gedcomState.isLoading) {
+        AlertDialog(
+            onDismissRequest = {},
+            confirmButton = {},
+            title = { Text("处理中...") },
+            text = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text("正在处理 GEDCOM 文件...")
+                }
+            }
+        )
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
+            .testTag("settings_screen")
     ) {
         TopAppBar(
             title = {
@@ -64,7 +120,6 @@ fun SettingsScreen() {
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
-            // 通用设置
             Text(
                 text = "通用",
                 style = MaterialTheme.typography.titleMedium,
@@ -95,7 +150,6 @@ fun SettingsScreen() {
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // 数据管理
             Text(
                 text = "数据",
                 style = MaterialTheme.typography.titleMedium,
@@ -112,21 +166,28 @@ fun SettingsScreen() {
                 elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
                 SettingsItem(
-                    icon = Icons.Filled.Backup,
-                    title = "备份与恢复",
-                    subtitle = "导出或导入家族数据"
+                    icon = Icons.Filled.FileUpload,
+                    title = "导入 GEDCOM",
+                    subtitle = "从 GEDCOM 5.5 文件导入家族数据",
+                    testTag = "import_gedcom_button",
+                    onClick = {
+                        importLauncher.launch(arrayOf("*/*"))
+                    }
                 )
                 Divider(modifier = Modifier.padding(horizontal = 16.dp))
                 SettingsItem(
-                    icon = Icons.Filled.Share,
-                    title = "分享家族树",
-                    subtitle = "生成分享链接或图片"
+                    icon = Icons.Filled.FileDownload,
+                    title = "导出 GEDCOM",
+                    subtitle = "将家族数据导出为 GEDCOM 5.5 文件",
+                    testTag = "export_gedcom_button",
+                    onClick = {
+                        exportLauncher.launch("family_tree.ged")
+                    }
                 )
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // 关于
             Text(
                 text = "关于",
                 style = MaterialTheme.typography.titleMedium,
@@ -156,12 +217,17 @@ fun SettingsScreen() {
 private fun SettingsItem(
     icon: ImageVector,
     title: String,
-    subtitle: String
+    subtitle: String,
+    testTag: String = "",
+    onClick: (() -> Unit)? = null
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { /* TODO: 处理点击事件 */ }
+            .then(
+                if (testTag.isNotEmpty()) Modifier.testTag(testTag) else Modifier
+            )
+            .clickable { onClick?.invoke() }
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
