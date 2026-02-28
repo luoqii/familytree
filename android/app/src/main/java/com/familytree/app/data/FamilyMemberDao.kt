@@ -9,49 +9,48 @@ import androidx.room.Update
 import com.familytree.app.data.model.FamilyMember
 import kotlinx.coroutines.flow.Flow
 
-/**
- * 家族成员数据访问对象 (DAO)
- */
 @Dao
 interface FamilyMemberDao {
 
-    /** 获取所有家族成员，按世代排序 */
-    @Query("SELECT * FROM family_members ORDER BY generation ASC, name ASC")
+    @Query("SELECT * FROM persons ORDER BY lastName ASC, firstName ASC")
     fun getAllMembers(): Flow<List<FamilyMember>>
 
-    /** 根据 ID 获取家族成员 */
-    @Query("SELECT * FROM family_members WHERE id = :id")
-    suspend fun getMemberById(id: Long): FamilyMember?
+    @Query("SELECT * FROM persons WHERE id = :id")
+    suspend fun getMemberById(id: String): FamilyMember?
 
-    /** 搜索家族成员 */
-    @Query("SELECT * FROM family_members WHERE name LIKE '%' || :query || '%'")
+    @Query("SELECT * FROM persons WHERE id = :id")
+    fun getMemberByIdFlow(id: String): Flow<FamilyMember?>
+
+    @Query(
+        "SELECT * FROM persons WHERE lastName LIKE '%' || :query || '%' " +
+                "OR firstName LIKE '%' || :query || '%'"
+    )
     fun searchMembers(query: String): Flow<List<FamilyMember>>
 
-    /** 获取某人的子女 */
-    @Query("SELECT * FROM family_members WHERE fatherId = :parentId OR motherId = :parentId")
-    fun getChildren(parentId: Long): Flow<List<FamilyMember>>
+    @Query("SELECT * FROM persons WHERE fatherId = :parentId OR motherId = :parentId")
+    fun getChildren(parentId: String): Flow<List<FamilyMember>>
 
-    /** 获取某一代的所有成员 */
-    @Query("SELECT * FROM family_members WHERE generation = :generation")
-    fun getMembersByGeneration(generation: Int): Flow<List<FamilyMember>>
+    @Query("SELECT * FROM persons WHERE fatherId = :parentId OR motherId = :parentId")
+    suspend fun getChildrenList(parentId: String): List<FamilyMember>
 
-    /** 获取成员总数 */
-    @Query("SELECT COUNT(*) FROM family_members")
+    @Query("SELECT * FROM persons WHERE fatherId IS NULL AND motherId IS NULL")
+    fun getRootMembers(): Flow<List<FamilyMember>>
+
+    @Query("SELECT COUNT(*) FROM persons")
     fun getMemberCount(): Flow<Int>
 
-    /** 插入新成员 */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertMember(member: FamilyMember): Long
+    suspend fun insertMember(member: FamilyMember)
 
-    /** 更新成员信息 */
     @Update
     suspend fun updateMember(member: FamilyMember)
 
-    /** 删除成员 */
     @Delete
     suspend fun deleteMember(member: FamilyMember)
 
-    /** 根据 ID 删除成员 */
-    @Query("DELETE FROM family_members WHERE id = :id")
-    suspend fun deleteMemberById(id: Long)
+    @Query("DELETE FROM persons WHERE id = :id")
+    suspend fun deleteMemberById(id: String)
+
+    @Query("SELECT * FROM persons")
+    suspend fun getAllMembersList(): List<FamilyMember>
 }

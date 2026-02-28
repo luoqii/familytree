@@ -4,55 +4,31 @@ import com.familytree.app.data.FamilyMemberDao
 import com.familytree.app.data.model.FamilyMember
 import kotlinx.coroutines.flow.Flow
 
-/**
- * 家族成员数据仓库
- * 作为数据层的单一来源
- */
-class FamilyRepository(private val familyMemberDao: FamilyMemberDao) {
+class FamilyRepository(private val dao: FamilyMemberDao) {
 
-    /** 获取所有成员 */
-    val allMembers: Flow<List<FamilyMember>> = familyMemberDao.getAllMembers()
+    val allMembers: Flow<List<FamilyMember>> = dao.getAllMembers()
 
-    /** 获取成员总数 */
-    val memberCount: Flow<Int> = familyMemberDao.getMemberCount()
+    val memberCount: Flow<Int> = dao.getMemberCount()
 
-    /** 根据 ID 获取成员 */
-    suspend fun getMemberById(id: Long): FamilyMember? {
-        return familyMemberDao.getMemberById(id)
-    }
+    val rootMembers: Flow<List<FamilyMember>> = dao.getRootMembers()
 
-    /** 搜索成员 */
-    fun searchMembers(query: String): Flow<List<FamilyMember>> {
-        return familyMemberDao.searchMembers(query)
-    }
+    suspend fun getMemberById(id: String): FamilyMember? = dao.getMemberById(id)
 
-    /** 获取子女 */
-    fun getChildren(parentId: Long): Flow<List<FamilyMember>> {
-        return familyMemberDao.getChildren(parentId)
-    }
+    fun getMemberByIdFlow(id: String): Flow<FamilyMember?> = dao.getMemberByIdFlow(id)
 
-    /** 获取某代成员 */
-    fun getMembersByGeneration(generation: Int): Flow<List<FamilyMember>> {
-        return familyMemberDao.getMembersByGeneration(generation)
-    }
+    fun searchMembers(query: String): Flow<List<FamilyMember>> = dao.searchMembers(query)
 
-    /** 添加成员 */
-    suspend fun insertMember(member: FamilyMember): Long {
-        return familyMemberDao.insertMember(member)
-    }
+    fun getChildren(parentId: String): Flow<List<FamilyMember>> = dao.getChildren(parentId)
 
-    /** 更新成员 */
-    suspend fun updateMember(member: FamilyMember) {
-        familyMemberDao.updateMember(member)
-    }
+    suspend fun getChildrenList(parentId: String): List<FamilyMember> = dao.getChildrenList(parentId)
 
-    /** 删除成员 */
-    suspend fun deleteMember(member: FamilyMember) {
-        familyMemberDao.deleteMember(member)
-    }
+    suspend fun getAllMembersList(): List<FamilyMember> = dao.getAllMembersList()
 
-    /** 根据 ID 删除成员 */
-    suspend fun deleteMemberById(id: Long) {
-        familyMemberDao.deleteMemberById(id)
-    }
+    suspend fun insertMember(member: FamilyMember) = dao.insertMember(member)
+
+    suspend fun updateMember(member: FamilyMember) = dao.updateMember(member)
+
+    suspend fun deleteMember(member: FamilyMember) = dao.deleteMember(member)
+
+    suspend fun deleteMemberById(id: String) = dao.deleteMemberById(id)
 }
